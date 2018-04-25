@@ -1,0 +1,5 @@
+.idea/
+*.hdf5
+logs/
+*.p
+image/
