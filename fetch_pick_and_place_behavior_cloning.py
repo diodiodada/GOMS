@@ -1,62 +1,56 @@
 from keras.models import Model
-from keras.layers import Input, Dense, Concatenate, Average
+from keras.layers import *
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from keras.optimizers import *
-from keras.layers.core import Dropout
 from keras.utils.vis_utils import plot_model
 import pickle
 import gym
 import numpy as np
 
 
-def behavior_cloning_0():
+def train_model_1():
 
-    state = Input(shape=(10,))
-    goal = Input(shape=(3,))
+    state = Input(shape=(50, 25))
+    goal = Input(shape=(50, 3))
 
-    fc1_s = Dense(50, activation='relu')(state)
-    fc2_s = Dense(50, activation='relu')(fc1_s)
-    fc3_s = Dense(50, activation='relu')(fc2_s)
-
-    fc1_g = Dense(50, activation='relu')(goal)
-    fc2_g = Dense(50, activation='relu')(fc1_g)
-    fc3_g = Dense(50, activation='relu')(fc2_g)
-
-    concat_0 = Concatenate(axis=-1)([fc3_s, fc3_g])
+    concat_0 = Concatenate(axis=-1)([state, goal])
 
     concat_1 = Dense(50, activation='relu')(concat_0)
     concat_2 = Dense(50, activation='relu')(concat_1)
-    concat_3 = Dense(50, activation='relu')(concat_2)
+
+    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=False)(concat_2)
+    lstm_2 = LSTM(50, input_shape=(50, 100), return_sequences=True, return_state=False, stateful=False)(lstm_1)
+
+    concat_3 = Dense(50, activation='relu')(lstm_2)
     concat_4 = Dense(50, activation='relu')(concat_3)
-    concat_5 = Dense(50, activation='relu')(concat_4)
-    concat_6 = Dense(50, activation='relu')(concat_5)
-    output = Dense(20)(concat_6)
+
+    output = Dense(4)(concat_4)
 
     model = Model(inputs=[state, goal], outputs=output, name='behavior_cloning')
 
     return model
 
 
-def behavior_cloning_1():
+def test_model():
 
-    state = Input(shape=(25,))
-    goal = Input(shape=(3,))
+    state = Input(shape=(1, 25), batch_shape=(2, 1, 25))
+    goal = Input(shape=(1, 3), batch_shape=(2, 1, 3))
+
+    # state = Input(shape=(1, 25))
+    # goal = Input(shape=(1, 3))
 
     concat_0 = Concatenate(axis=-1)([state, goal])
 
     concat_1 = Dense(50, activation='relu')(concat_0)
     concat_2 = Dense(50, activation='relu')(concat_1)
-    concat_3 = Dense(50, activation='relu')(concat_2)
-    concat_4 = Dense(50, activation='relu')(concat_3)
-    drop_1 = Dropout(0.5)(concat_4)
-    concat_5 = Dense(50, activation='relu')(drop_1)
-    concat_6 = Dense(50, activation='relu')(concat_5)
-    concat_7 = Dense(50, activation='relu')(concat_6)
-    concat_8 = Dense(50, activation='relu')(concat_7)
-    drop_2 = Dropout(0.5)(concat_8)
-    concat_9 = Dense(50, activation='relu')(drop_2)
 
-    output = Dense(4)(concat_9)
+    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=True)(concat_2)
+    lstm_2 = LSTM(50, input_shape=(50, 100), return_sequences=True, return_state=False, stateful=True)(lstm_1)
+
+    concat_3 = Dense(50, activation='relu')(lstm_2)
+    concat_4 = Dense(50, activation='relu')(concat_3)
+
+    output = Dense(4)(concat_4)
 
     model = Model(inputs=[state, goal], outputs=output, name='behavior_cloning')
 
@@ -67,16 +61,20 @@ def train(model):
 
     data = pickle.load(open('FetchPickAndPlace-v0.p', 'rb'))
 
-    state_feed = data[:, 0:25]
-    action_feed = data[:, 25:29]
-    next_state_deed = data[:, 29:54]
-    goal_feed = data[:, 54:57]
-    done_feed = data[:, 57]
+    data = data.reshape((5000, 50, 58))
+
+    state_feed = data[:, :, 0:25]
+    action_feed = data[:, :, 25:29]
+    next_state_deed = data[:, :, 29:54]
+    goal_feed = data[:, :, 54:57]
+    done_feed = data[:, :, 57]
 
     model.compile(optimizer=Adam(lr=1e-4),
                   loss='mean_squared_error',
                   # metrics=['mse']
                   )
+
+    # model.load_weights('FetchPickAndPlace.199-0.0034.hdf5', by_name=True)
 
     tf_board = TensorBoard(log_dir='./logs',
                            histogram_freq=0,
@@ -100,7 +98,8 @@ def train(model):
     model.fit([state_feed, goal_feed],
               action_feed,
               batch_size=50,
-              epochs=100,
+              # initial_epoch=201,
+              epochs=1000,
               verbose=1,
               validation_split=0.2,
               shuffle=True,
@@ -114,35 +113,79 @@ def test(model_for_25_nets):
                               loss='mean_squared_error',
                               metrics=['mse'])
 
-    model_for_25_nets.load_weights('FetchPickAndPlace.27-0.0163.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FetchPickAndPlace.988-0.0001.hdf5', by_name=True)
 
     while True:
 
-        two_state = np.zeros((2, 25))
-        two_goal = np.zeros((2, 3))
+        two_state = np.zeros((2, 1, 25))
+        two_goal = np.zeros((2, 1, 3))
         observation = env.reset()
-        two_state[0, :] = observation["observation"]
-        two_goal[0, :] = observation["desired_goal"]
+        two_state[0, 0, :] = observation["observation"]
+        two_goal[0, 0, :] = observation["desired_goal"]
 
-        action = np.zeros((4,))
         done = False
 
-        # while not done:
-        while True:
+        model_for_25_nets.reset_states()
+
+        while not done:
+        # while True:
             env.render()
             action_two = model_for_25_nets.predict_on_batch([two_state, two_goal])
-            action = action_two[0, :]
+            action = action_two[0, 0, :]
 
             observation, reward, done, info = env.step(action)
-            two_state[0, :] = observation["observation"]
-            two_goal[0, :] = observation["desired_goal"]
+            two_state[0, 0, :] = observation["observation"]
+            two_goal[0, 0, :] = observation["desired_goal"]
 
             if done:
                 print(True)
 
 
+def check_usage_for_lstm(model_for_25_nets):
+    # this file is used for check:
+    # whether model loading weights correctly
+    # whether model using the state from previous time
+
+    data = pickle.load(open('FetchPickAndPlace-v0.p', 'rb'))
+
+    data = data.reshape((5000, 50, 58))
+
+    state_feed = data[:, :, 0:25]
+    action_feed = data[:, :, 25:29]
+    next_state_deed = data[:, :, 29:54]
+    goal_feed = data[:, :, 54:57]
+    done_feed = data[:, :, 57]
+
+    model_for_25_nets.compile(optimizer=Adam(lr=1e-4),
+                              loss='mean_squared_error',
+                              metrics=['mse'])
+
+    model_for_25_nets.load_weights('FetchPickAndPlace.100-0.0072.hdf5', by_name=True)
+
+    two_state = np.zeros((2, 1, 25))
+    two_goal = np.zeros((2, 1, 3))
+
+    two_state[0, 0, :] = state_feed[0, 0, :]
+    two_state[1, 0, :] = state_feed[0, 0, :]
+
+    two_goal[0, 0, :] = goal_feed[0, 0, :]
+    two_goal[1, 0, :] = goal_feed[0, 0, :]
+
+    action_two = model_for_25_nets.predict_on_batch([two_state, two_goal])
+    print(action_two)
+
+    print("\n")
+
+    # model_for_25_nets.reset_states()
+
+    action_two = model_for_25_nets.predict_on_batch([two_state, two_goal])
+    print(action_two)
+
+
 if __name__ == '__main__':
 
-    model = behavior_cloning_1()
+    # model = train_model_1()
     # train(model)
+
+    model = test_model()
     test(model)

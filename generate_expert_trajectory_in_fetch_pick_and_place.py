@@ -99,7 +99,7 @@ close_counter = 0
 
 data = []
 
-for trajectory_num in range(5000):
+for trajectory_num in range(50000):
     stage = stage_set[0]
 
     observation = env.reset()
@@ -126,6 +126,6 @@ for trajectory_num in range(5000):
     print(trajectory_num)
 
 data = np.array(data)
-pickle.dump(data, open("FetchPickAndPlace-v0.p", "wb"))
+pickle.dump(data, open("FetchPickAndPlace-50000.p", "wb"))
 
 
