@@ -44,8 +44,8 @@ def test_model():
     concat_1 = Dense(50, activation='relu')(concat_0)
     concat_2 = Dense(50, activation='relu')(concat_1)
 
-    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=True)(concat_2)
-    lstm_2 = LSTM(50, input_shape=(50, 100), return_sequences=True, return_state=False, stateful=True)(lstm_1)
+    lstm_1 = LSTM(100, input_shape=(1, 50), return_sequences=True, return_state=False, stateful=True)(concat_2)
+    lstm_2 = LSTM(50, input_shape=(1, 100), return_sequences=True, return_state=False, stateful=True)(lstm_1)
 
     concat_3 = Dense(50, activation='relu')(lstm_2)
     concat_4 = Dense(50, activation='relu')(concat_3)
@@ -59,19 +59,29 @@ def test_model():
 
 def train(model):
 
+    # get the data for training
     data = pickle.load(open('FetchPickAndPlace-v0.p', 'rb'))
-
     data = data.reshape((5000, 50, 58))
-
     state_feed = data[:, :, 0:25]
     action_feed = data[:, :, 25:29]
     next_state_deed = data[:, :, 29:54]
     goal_feed = data[:, :, 54:57]
     done_feed = data[:, :, 57]
 
+    # generage sample_weight numpy array
+    s_1 = [40 / 6] * 6
+    s_2 = [30 / 4] * 4
+    s_3 = [25 / 5] * 5
+    s_4 = [20 / 4] * 4
+    s_5 = [10 / 31] * 31
+    s = s_1 + s_2 + s_3 + s_4 + s_5
+    sample_weight = [s] * 5000
+    sample_weight = np.array(sample_weight)
+
     model.compile(optimizer=Adam(lr=1e-4),
                   loss='mean_squared_error',
-                  # metrics=['mse']
+                  # metrics=['mse'],
+                  sample_weight_mode='temporal',
                   )
 
     # model.load_weights('FetchPickAndPlace.199-0.0034.hdf5', by_name=True)
@@ -103,7 +113,8 @@ def train(model):
               verbose=1,
               validation_split=0.2,
               shuffle=True,
-              callbacks=[tf_board, model_checkpoint])
+              callbacks=[tf_board, model_checkpoint],
+              sample_weight=sample_weight)
 
 
 def test(model_for_25_nets):
@@ -113,7 +124,7 @@ def test(model_for_25_nets):
                               loss='mean_squared_error',
                               metrics=['mse'])
 
-    model_for_25_nets.load_weights('FetchPickAndPlace.988-0.0001.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FetchPickAndPlace.355-0.0004.hdf5', by_name=True)
 
     while True:
 

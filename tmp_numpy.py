@@ -1,24 +1,14 @@
 import numpy as np
 import pickle
 
-n = 0
-data = pickle.load(open('FetchPickAndPlace-v0.p', 'rb'))
-print(data.shape)
+s_1 = [10/6]*6
+s_2 = [10/4]*4
+s_3 = [10/5]*5
+s_4 = [10/4]*4
+s_5 = [10/31]*31
 
+s = s_1 + s_2 + s_3 + s_4 + s_5
 
-# for i in range(data.shape[0]):
-#     if data[i][-1] == 1.0:
-#         print(i+1)
-#         n = n + 1
-# print(n)
-
-data = data.reshape((5000, 50, 58))
-
-print(data.shape)
-
-for i in range(5000):
-    if data[i, 49, 57] != 1.0:
-        print("wrong !!")
-    else:
-        print("yes !!")
-
+sample_weight = [s] * 59
+sample_weight = np.array(sample_weight)
+print(sample_weight.shape)
