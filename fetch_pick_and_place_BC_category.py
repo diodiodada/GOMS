@@ -2,6 +2,7 @@ from keras.models import Model
 from keras.layers import *
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from keras.optimizers import *
+from keras.utils import to_categorical
 from keras.utils.vis_utils import plot_model
 import pickle
 import gym
@@ -27,6 +28,30 @@ def train_model_1():
     output = Dense(4)(concat_4)
 
     model = Model(inputs=[state, goal], outputs=output, name='behavior_cloning')
+
+    return model
+
+def train_model():
+
+    state = Input(shape=(50, 25))
+    goal = Input(shape=(50, 3))
+
+    concat_0 = Concatenate(axis=-1)([state, goal])
+
+    concat_1 = Dense(50, activation='relu')(concat_0)
+    concat_2 = Dense(50, activation='relu')(concat_1)
+
+    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=False)(concat_2)
+
+    concat_3 = Dense(50, activation='relu')(lstm_1)
+    concat_4 = Dense(50, activation='relu')(concat_3)
+
+    output_x = Dense(3, activation='softmax', name="x")(concat_4)
+    output_y = Dense(3, activation='softmax', name="y")(concat_4)
+    output_z = Dense(3, activation='softmax', name="z")(concat_4)
+    output_hand = Dense(2, activation='softmax', name="hand")(concat_4)
+
+    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
 
     return model
 
@@ -60,28 +85,26 @@ def test_model():
 def train(model):
 
     # get the data for training
-    data = pickle.load(open('FetchPickAndPlace-50000.p', 'rb'))
-    data = data.reshape((50000, 50, 58))
+    data = pickle.load(open('FetchPickAndPlace-category-5000.p', 'rb'))
+    data = data.reshape((5000, 50, 58))
+
     state_feed = data[:, :, 0:25]
     action_feed = data[:, :, 25:29]
-    next_state_deed = data[:, :, 29:54]
     goal_feed = data[:, :, 54:57]
-    done_feed = data[:, :, 57]
 
-    # generage sample_weight numpy array
-    s_1 = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
-    s_2 = [2.0, 2.0, 2.0, 2.0]
-    s_3 = [3.0, 3.0, 3.0, 3.5, 4.0]
-    s_4 = [2.0, 2.0, 2.0, 2.0]
-    s_5 = [0.5] * 31
-    s = s_1 + s_2 + s_3 + s_4 + s_5
-    sample_weight = [s] * 50000
-    sample_weight = np.array(sample_weight)
+    action_x_feed = action_feed[:, :, 0]
+    action_y_feed = action_feed[:, :, 1]
+    action_z_feed = action_feed[:, :, 2]
+    action_hand_feed = action_feed[:, :, 3]
+
+    action_x_feed = to_categorical(action_x_feed, 3)
+    action_y_feed = to_categorical(action_y_feed, 3)
+    action_z_feed = to_categorical(action_z_feed, 3)
+    action_hand_feed = to_categorical(action_hand_feed, 2)
 
     model.compile(optimizer=Adam(lr=1e-4),
-                  loss='mean_squared_error',
-                  # metrics=['mse'],
-                  sample_weight_mode='temporal',
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'],
                   )
 
     # model.load_weights('FetchPickAndPlace.199-0.0034.hdf5', by_name=True)
@@ -94,27 +117,26 @@ def train(model):
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    early_stop = EarlyStopping(monitor='val_loss',
+    early_stop = EarlyStopping(monitor='val_acc',
                                patience=2,
                                verbose=0,
                                mode='auto')
 
-    model_checkpoint = ModelCheckpoint('FetchPickAndPlace.{epoch:02d}-{val_loss:.4f}.hdf5',
+    model_checkpoint = ModelCheckpoint('FetchPickAndPlace_category.{epoch:02d}-{val_loss:.4f}.hdf5',
                                        monitor='val_loss',                    # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
                                        save_weights_only=True)
 
     model.fit([state_feed, goal_feed],
-              action_feed,
+              [action_x_feed, action_y_feed, action_z_feed, action_hand_feed],
               batch_size=50,
               # initial_epoch=201,
               epochs=1000,
               verbose=1,
               validation_split=0.2,
               shuffle=True,
-              callbacks=[tf_board, model_checkpoint],
-              sample_weight=sample_weight)
+              callbacks=[tf_board, model_checkpoint])
 
 
 def test(model_for_25_nets):
@@ -195,8 +217,8 @@ def check_usage_for_lstm(model_for_25_nets):
 
 if __name__ == '__main__':
 
-    # model = train_model_1()
-    # train(model)
+    model = train_model()
+    train(model)
 
-    model = test_model()
-    test(model)
+    # model = test_model()
+    # test(model)

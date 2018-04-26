@@ -5,9 +5,17 @@ import numpy as np
 
 def policy(observation):
     global stage
-    global open_counter
     global close_counter
-    action = np.zeros((4,))
+
+    plus = 2
+    minus = 1
+    fixed = 0
+
+    hand_open = 1
+    close = 0
+
+    action = [fixed, fixed, fixed, close]
+
     if stage == "reach_object":
         # move towards the object
         # if distance > 0.03 of distance < -0.03, using 1/-1
@@ -24,13 +32,13 @@ def policy(observation):
         else:
             for i in range(3):
                 if action_3[i] > max:
-                    action_3[i] = 0.5
+                    action_3[i] = plus
                 elif action_3[i] < min:
-                    action_3[i] = -0.5
+                    action_3[i] = minus
                 else:
-                    action_3[i] = 0.0
+                    action_3[i] = fixed
             action[0:3] = action_3
-        action[3] = 1.0
+        action[3] = hand_open
 
     elif stage == "go_down":
 
@@ -47,24 +55,23 @@ def policy(observation):
         else:
             for i in range(3):
                 if action_3[i] > max:
-                    action_3[i] = 0.5
+                    action_3[i] = plus
                 elif action_3[i] < min:
-                    action_3[i] = -0.5
+                    action_3[i] = minus
                 else:
-                    action_3[i] = 0.0
+                    action_3[i] = fixed
             action[0:3] = action_3
-        action[3] = 1.0
+        action[3] = hand_open
 
     elif stage == "close":
         # close the claw !!
         if close_counter < 3:
-            action = [0.0, 0.0, 0.0, -1.0]
             close_counter = close_counter + 1
         else:
             # print("close the claw !!")
             stage = stage_set[3]
             close_counter = 0
-        action[3] = -1.0
+        action[3] = close
 
     elif stage == "reach":
 
@@ -82,13 +89,13 @@ def policy(observation):
         else:
             for i in range(3):
                 if action_3[i] > max:
-                    action_3[i] = 0.5
+                    action_3[i] = plus
                 elif action_3[i] < min:
-                    action_3[i] = -0.5
+                    action_3[i] = minus
                 else:
-                    action_3[i] = 0
+                    action_3[i] = fixed
             action[0:3] = action_3
-        action[3] = -1.0
+        action[3] = close
 
     return action
 
@@ -100,24 +107,45 @@ close_counter = 0
 
 data = []
 
-for trajectory_num in range(50000):
+for trajectory_num in range(5000):
     stage = stage_set[0]
 
     observation = env.reset()
     done = False
     # print(observation)
 
-    while not done:
-        env.render()
+    plus = 2
+    minus = 1
+    fixed = 0
 
-        action = policy(observation)
+    hand_open = 1
+    close = 0
+
+    while not done:
+        # env.render()
+
+        action_category = policy(observation)
+        action = np.zeros((4))
+
+        for i in range(3):
+            if action_category[i] == plus:
+                action[i] = 0.5
+            elif action_category[i] == minus:
+                action[i] = -0.5
+            elif action_category[i] == fixed:
+                action[i] = 0.0
+
+        if action_category[3] == hand_open:
+            action[3] = 1.0
+        elif action_category[3] == close:
+            action[3] = -1.0
 
         previous_observation = observation
         observation, reward, done, info = env.step(action)
 
         record = []
         record.extend(previous_observation["observation"])
-        record.extend(action)
+        record.extend(action_category)
         record.extend(observation["observation"])
         record.extend(observation["desired_goal"])
         record.extend([float(done)])
@@ -126,7 +154,6 @@ for trajectory_num in range(50000):
 
     print(trajectory_num)
 
-# data = np.array(data)
-# pickle.dump(data, open("FetchPickAndPlace-50000.p", "wb"))
-
+data = np.array(data)
+pickle.dump(data, open("FetchPickAndPlace-category-5000.p", "wb"))
 
