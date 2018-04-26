@@ -60,8 +60,8 @@ def test_model():
 def train(model):
 
     # get the data for training
-    data = pickle.load(open('FetchPickAndPlace-v0.p', 'rb'))
-    data = data.reshape((5000, 50, 58))
+    data = pickle.load(open('FetchPickAndPlace-50000.p', 'rb'))
+    data = data.reshape((50000, 50, 58))
     state_feed = data[:, :, 0:25]
     action_feed = data[:, :, 25:29]
     next_state_deed = data[:, :, 29:54]
@@ -69,13 +69,13 @@ def train(model):
     done_feed = data[:, :, 57]
 
     # generage sample_weight numpy array
-    s_1 = [40 / 6] * 6
-    s_2 = [30 / 4] * 4
-    s_3 = [25 / 5] * 5
-    s_4 = [20 / 4] * 4
-    s_5 = [10 / 31] * 31
+    s_1 = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+    s_2 = [2.0, 2.0, 2.0, 2.0]
+    s_3 = [3.0, 3.0, 3.0, 3.5, 4.0]
+    s_4 = [2.0, 2.0, 2.0, 2.0]
+    s_5 = [0.5] * 31
     s = s_1 + s_2 + s_3 + s_4 + s_5
-    sample_weight = [s] * 5000
+    sample_weight = [s] * 50000
     sample_weight = np.array(sample_weight)
 
     model.compile(optimizer=Adam(lr=1e-4),
@@ -124,7 +124,7 @@ def test(model_for_25_nets):
                               loss='mean_squared_error',
                               metrics=['mse'])
 
-    model_for_25_nets.load_weights('FetchPickAndPlace.355-0.0004.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FetchPickAndPlace.90-0.0001.hdf5', by_name=True)
 
     while True:
 
