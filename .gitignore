@@ -1,5 +1,6 @@
 .idea/
 logs/
 image/
+PickAndPlace_category_feature_reduced_weights/
 *.hdf5
 *.p

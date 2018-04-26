@@ -33,7 +33,7 @@ def train_model_1():
 
 def train_model():
 
-    state = Input(shape=(50, 25))
+    state = Input(shape=(50, 6))
     goal = Input(shape=(50, 3))
 
     concat_0 = Concatenate(axis=-1)([state, goal])
@@ -58,7 +58,7 @@ def train_model():
 
 def test_model():
 
-    state = Input(shape=(1, 25), batch_shape=(2, 1, 25))
+    state = Input(shape=(1, 6), batch_shape=(2, 1, 6))
     goal = Input(shape=(1, 3), batch_shape=(2, 1, 3))
 
     concat_0 = Concatenate(axis=-1)([state, goal])
@@ -87,7 +87,7 @@ def train(model):
     data = pickle.load(open('FetchPickAndPlace-category-5000.p', 'rb'))
     data = data.reshape((5000, 50, 58))
 
-    state_feed = data[:, :, 0:25]
+    state_feed = data[:, :, 0:6]
     action_feed = data[:, :, 25:29]
     goal_feed = data[:, :, 54:57]
 
@@ -121,7 +121,7 @@ def train(model):
                                verbose=0,
                                mode='auto')
 
-    model_checkpoint = ModelCheckpoint('FetchPickAndPlace_category.{epoch:02d}-{val_loss:.4f}.hdf5',
+    model_checkpoint = ModelCheckpoint('FetchPickAndPlace_category_feature_reduced.{epoch:02d}-{val_loss:.4f}.hdf5',
                                        monitor='val_loss',                    # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -146,14 +146,14 @@ def test(model_for_25_nets):
                               metrics=['accuracy'],
                               )
 
-    model_for_25_nets.load_weights('FetchPickAndPlace_category.206-0.0671.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FetchPickAndPlace_category_feature_reduced.590-0.1065.hdf5', by_name=True)
 
     while True:
 
-        two_state = np.zeros((2, 1, 25))
+        two_state = np.zeros((2, 1, 6))
         two_goal = np.zeros((2, 1, 3))
         observation = env.reset()
-        two_state[0, 0, :] = observation["observation"]
+        two_state[0, 0, :] = observation["observation"][0:6]
         two_goal[0, 0, :] = observation["desired_goal"]
 
         done = False
@@ -198,7 +198,7 @@ def test(model_for_25_nets):
                 action[3] = 1.0
 
             observation, reward, done, info = env.step(action)
-            two_state[0, 0, :] = observation["observation"]
+            two_state[0, 0, :] = observation["observation"][0:6]
             two_goal[0, 0, :] = observation["desired_goal"]
 
             if done:
@@ -248,8 +248,8 @@ def check_usage_for_lstm(model_for_25_nets):
 
 if __name__ == '__main__':
 
-    model = train_model()
-    train(model)
+    # model = train_model()
+    # train(model)
 
-    # model = test_model()
-    # test(model)
+    model = test_model()
+    test(model)
