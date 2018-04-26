@@ -61,23 +61,22 @@ def test_model():
     state = Input(shape=(1, 25), batch_shape=(2, 1, 25))
     goal = Input(shape=(1, 3), batch_shape=(2, 1, 3))
 
-    # state = Input(shape=(1, 25))
-    # goal = Input(shape=(1, 3))
-
     concat_0 = Concatenate(axis=-1)([state, goal])
 
     concat_1 = Dense(50, activation='relu')(concat_0)
     concat_2 = Dense(50, activation='relu')(concat_1)
 
-    lstm_1 = LSTM(100, input_shape=(1, 50), return_sequences=True, return_state=False, stateful=True)(concat_2)
-    lstm_2 = LSTM(50, input_shape=(1, 100), return_sequences=True, return_state=False, stateful=True)(lstm_1)
+    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=True)(concat_2)
 
-    concat_3 = Dense(50, activation='relu')(lstm_2)
+    concat_3 = Dense(50, activation='relu')(lstm_1)
     concat_4 = Dense(50, activation='relu')(concat_3)
 
-    output = Dense(4)(concat_4)
+    output_x = Dense(3, activation='softmax', name="x")(concat_4)
+    output_y = Dense(3, activation='softmax', name="y")(concat_4)
+    output_z = Dense(3, activation='softmax', name="z")(concat_4)
+    output_hand = Dense(2, activation='softmax', name="hand")(concat_4)
 
-    model = Model(inputs=[state, goal], outputs=output, name='behavior_cloning')
+    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
 
     return model
 
@@ -135,7 +134,7 @@ def train(model):
               epochs=1000,
               verbose=1,
               validation_split=0.2,
-              shuffle=True,
+              shuffle=False,
               callbacks=[tf_board, model_checkpoint])
 
 
@@ -143,10 +142,11 @@ def test(model_for_25_nets):
     env = gym.make('FetchPickAndPlace-v0')
 
     model_for_25_nets.compile(optimizer=Adam(lr=1e-4),
-                              loss='mean_squared_error',
-                              metrics=['mse'])
+                              loss='categorical_crossentropy',
+                              metrics=['accuracy'],
+                              )
 
-    model_for_25_nets.load_weights('FetchPickAndPlace.872-0.0000.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FetchPickAndPlace_category.206-0.0671.hdf5', by_name=True)
 
     while True:
 
@@ -161,10 +161,41 @@ def test(model_for_25_nets):
         model_for_25_nets.reset_states()
 
         while not done:
-        # while True:
             env.render()
-            action_two = model_for_25_nets.predict_on_batch([two_state, two_goal])
-            action = action_two[0, 0, :]
+            two_x, two_y, two_z, two_hand = model_for_25_nets.predict_on_batch([two_state, two_goal])
+
+            x = two_x[0, 0, :]
+            y = two_y[0, 0, :]
+            z = two_z[0, 0, :]
+            hand = two_hand[0, 0, :]
+
+            action = np.zeros(4,)
+
+            if x.argmax() == 0:
+                action[0] = 0
+            elif x.argmax() == 1:
+                action[0] = -0.5
+            elif x.argmax() == 2:
+                action[0] = 0.5
+
+            if y.argmax() == 0:
+                action[1] = 0
+            elif y.argmax() == 1:
+                action[1] = -0.5
+            elif y.argmax() == 2:
+                action[1] = 0.5
+
+            if z.argmax() == 0:
+                action[2] = 0
+            elif z.argmax() == 1:
+                action[2] = -0.5
+            elif z.argmax() == 2:
+                action[2] = 0.5
+
+            if hand.argmax() == 0:
+                action[3] = -1.0
+            elif hand.argmax() == 1:
+                action[3] = 1.0
 
             observation, reward, done, info = env.step(action)
             two_state[0, 0, :] = observation["observation"]
