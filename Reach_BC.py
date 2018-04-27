@@ -114,7 +114,7 @@ def test(model_for_25_nets):
                               loss='mean_squared_error',
                               metrics=['mse'])
 
-    model_for_25_nets.load_weights('one-step-backward.60-0.06.hdf5', by_name=True)
+    model_for_25_nets.load_weights('fetch_reach_one_step_backward.60-0.06.hdf5', by_name=True)
 
     while True:
 

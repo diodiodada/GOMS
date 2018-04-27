@@ -110,7 +110,7 @@ def test(model_for_25_nets):
                               loss='mean_squared_error',
                               metrics=['mse'])
 
-    model_for_25_nets.load_weights('FetchPickAndPlace_feature_reduced.14-0.0231.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FetchPickAndPlace_feature_reduced.24-0.0159.hdf5', by_name=True)
 
     while True:
 
