@@ -2,7 +2,6 @@ from keras.models import Model
 from keras.layers import *
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from keras.optimizers import *
-from keras.utils import to_categorical
 from keras.utils.vis_utils import plot_model
 import pickle
 import gym
@@ -31,52 +30,29 @@ def train_model_1():
 
     return model
 
-def train_model():
-
-    state = Input(shape=(50, 25))
-    goal = Input(shape=(50, 3))
-
-    concat_0 = Concatenate(axis=-1)([state, goal])
-
-    concat_1 = Dense(50, activation='relu')(concat_0)
-    concat_2 = Dense(50, activation='relu')(concat_1)
-
-    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=False)(concat_2)
-
-    concat_3 = Dense(50, activation='relu')(lstm_1)
-    concat_4 = Dense(50, activation='relu')(concat_3)
-
-    output_x = Dense(3, activation='softmax', name="x")(concat_4)
-    output_y = Dense(3, activation='softmax', name="y")(concat_4)
-    output_z = Dense(3, activation='softmax', name="z")(concat_4)
-    output_hand = Dense(2, activation='softmax', name="hand")(concat_4)
-
-    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
-
-    return model
-
 
 def test_model():
 
     state = Input(shape=(1, 25), batch_shape=(2, 1, 25))
     goal = Input(shape=(1, 3), batch_shape=(2, 1, 3))
 
+    # state = Input(shape=(1, 25))
+    # goal = Input(shape=(1, 3))
+
     concat_0 = Concatenate(axis=-1)([state, goal])
 
     concat_1 = Dense(50, activation='relu')(concat_0)
     concat_2 = Dense(50, activation='relu')(concat_1)
 
-    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=True)(concat_2)
+    lstm_1 = LSTM(100, input_shape=(1, 50), return_sequences=True, return_state=False, stateful=True)(concat_2)
+    lstm_2 = LSTM(50, input_shape=(1, 100), return_sequences=True, return_state=False, stateful=True)(lstm_1)
 
-    concat_3 = Dense(50, activation='relu')(lstm_1)
+    concat_3 = Dense(50, activation='relu')(lstm_2)
     concat_4 = Dense(50, activation='relu')(concat_3)
 
-    output_x = Dense(3, activation='softmax', name="x")(concat_4)
-    output_y = Dense(3, activation='softmax', name="y")(concat_4)
-    output_z = Dense(3, activation='softmax', name="z")(concat_4)
-    output_hand = Dense(2, activation='softmax', name="hand")(concat_4)
+    output = Dense(4)(concat_4)
 
-    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
+    model = Model(inputs=[state, goal], outputs=output, name='behavior_cloning')
 
     return model
 
@@ -84,26 +60,28 @@ def test_model():
 def train(model):
 
     # get the data for training
-    data = pickle.load(open('FetchPickAndPlace-category-5000.p', 'rb'))
-    data = data.reshape((5000, 50, 58))
-
+    data = pickle.load(open('FetchPickAndPlace-50000.p', 'rb'))
+    data = data.reshape((50000, 50, 58))
     state_feed = data[:, :, 0:25]
     action_feed = data[:, :, 25:29]
+    next_state_deed = data[:, :, 29:54]
     goal_feed = data[:, :, 54:57]
+    done_feed = data[:, :, 57]
 
-    action_x_feed = action_feed[:, :, 0]
-    action_y_feed = action_feed[:, :, 1]
-    action_z_feed = action_feed[:, :, 2]
-    action_hand_feed = action_feed[:, :, 3]
-
-    action_x_feed = to_categorical(action_x_feed, 3)
-    action_y_feed = to_categorical(action_y_feed, 3)
-    action_z_feed = to_categorical(action_z_feed, 3)
-    action_hand_feed = to_categorical(action_hand_feed, 2)
+    # generage sample_weight numpy array
+    s_1 = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+    s_2 = [2.0, 2.0, 2.0, 2.0]
+    s_3 = [3.0, 3.0, 3.0, 3.5, 4.0]
+    s_4 = [2.0, 2.0, 2.0, 2.0]
+    s_5 = [0.5] * 31
+    s = s_1 + s_2 + s_3 + s_4 + s_5
+    sample_weight = [s] * 50000
+    sample_weight = np.array(sample_weight)
 
     model.compile(optimizer=Adam(lr=1e-4),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'],
+                  loss='mean_squared_error',
+                  # metrics=['mse'],
+                  sample_weight_mode='temporal',
                   )
 
     # model.load_weights('FetchPickAndPlace.199-0.0034.hdf5', by_name=True)
@@ -116,37 +94,37 @@ def train(model):
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    early_stop = EarlyStopping(monitor='val_acc',
+    early_stop = EarlyStopping(monitor='val_loss',
                                patience=2,
                                verbose=0,
                                mode='auto')
 
-    model_checkpoint = ModelCheckpoint('FetchPickAndPlace_category.{epoch:02d}-{val_loss:.4f}.hdf5',
+    model_checkpoint = ModelCheckpoint('FetchPickAndPlace.{epoch:02d}-{val_loss:.4f}.hdf5',
                                        monitor='val_loss',                    # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
                                        save_weights_only=True)
 
     model.fit([state_feed, goal_feed],
-              [action_x_feed, action_y_feed, action_z_feed, action_hand_feed],
+              action_feed,
               batch_size=50,
               # initial_epoch=201,
               epochs=1000,
               verbose=1,
               validation_split=0.2,
               shuffle=False,
-              callbacks=[tf_board, model_checkpoint])
+              callbacks=[tf_board, model_checkpoint],
+              sample_weight=sample_weight)
 
 
 def test(model_for_25_nets):
     env = gym.make('FetchPickAndPlace-v0')
 
     model_for_25_nets.compile(optimizer=Adam(lr=1e-4),
-                              loss='categorical_crossentropy',
-                              metrics=['accuracy'],
-                              )
+                              loss='mean_squared_error',
+                              metrics=['mse'])
 
-    model_for_25_nets.load_weights('FetchPickAndPlace_category.507-0.0518.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FetchPickAndPlace.872-0.0000.hdf5', by_name=True)
 
     while True:
 
@@ -161,41 +139,10 @@ def test(model_for_25_nets):
         model_for_25_nets.reset_states()
 
         while not done:
+        # while True:
             env.render()
-            two_x, two_y, two_z, two_hand = model_for_25_nets.predict_on_batch([two_state, two_goal])
-
-            x = two_x[0, 0, :]
-            y = two_y[0, 0, :]
-            z = two_z[0, 0, :]
-            hand = two_hand[0, 0, :]
-
-            action = np.zeros(4,)
-
-            if x.argmax() == 0:
-                action[0] = 0
-            elif x.argmax() == 1:
-                action[0] = -0.5
-            elif x.argmax() == 2:
-                action[0] = 0.5
-
-            if y.argmax() == 0:
-                action[1] = 0
-            elif y.argmax() == 1:
-                action[1] = -0.5
-            elif y.argmax() == 2:
-                action[1] = 0.5
-
-            if z.argmax() == 0:
-                action[2] = 0
-            elif z.argmax() == 1:
-                action[2] = -0.5
-            elif z.argmax() == 2:
-                action[2] = 0.5
-
-            if hand.argmax() == 0:
-                action[3] = -1.0
-            elif hand.argmax() == 1:
-                action[3] = 1.0
+            action_two = model_for_25_nets.predict_on_batch([two_state, two_goal])
+            action = action_two[0, 0, :]
 
             observation, reward, done, info = env.step(action)
             two_state[0, 0, :] = observation["observation"]
@@ -248,7 +195,7 @@ def check_usage_for_lstm(model_for_25_nets):
 
 if __name__ == '__main__':
 
-    # model = train_model()
+    # model = train_model_1()
     # train(model)
 
     model = test_model()

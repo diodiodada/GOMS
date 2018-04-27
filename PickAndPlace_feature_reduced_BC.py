@@ -10,7 +10,7 @@ import numpy as np
 
 def train_model_1():
 
-    state = Input(shape=(50, 25))
+    state = Input(shape=(50, 6))
     goal = Input(shape=(50, 3))
 
     concat_0 = Concatenate(axis=-1)([state, goal])
@@ -33,7 +33,7 @@ def train_model_1():
 
 def test_model():
 
-    state = Input(shape=(1, 25), batch_shape=(2, 1, 25))
+    state = Input(shape=(1, 6), batch_shape=(2, 1, 6))
     goal = Input(shape=(1, 3), batch_shape=(2, 1, 3))
 
     # state = Input(shape=(1, 25))
@@ -62,26 +62,13 @@ def train(model):
     # get the data for training
     data = pickle.load(open('FetchPickAndPlace-50000.p', 'rb'))
     data = data.reshape((50000, 50, 58))
-    state_feed = data[:, :, 0:25]
+    state_feed = data[:, :, 0:6]
     action_feed = data[:, :, 25:29]
-    next_state_deed = data[:, :, 29:54]
     goal_feed = data[:, :, 54:57]
-    done_feed = data[:, :, 57]
-
-    # generage sample_weight numpy array
-    s_1 = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
-    s_2 = [2.0, 2.0, 2.0, 2.0]
-    s_3 = [3.0, 3.0, 3.0, 3.5, 4.0]
-    s_4 = [2.0, 2.0, 2.0, 2.0]
-    s_5 = [0.5] * 31
-    s = s_1 + s_2 + s_3 + s_4 + s_5
-    sample_weight = [s] * 50000
-    sample_weight = np.array(sample_weight)
 
     model.compile(optimizer=Adam(lr=1e-4),
                   loss='mean_squared_error',
                   # metrics=['mse'],
-                  sample_weight_mode='temporal',
                   )
 
     # model.load_weights('FetchPickAndPlace.199-0.0034.hdf5', by_name=True)
@@ -99,7 +86,7 @@ def train(model):
                                verbose=0,
                                mode='auto')
 
-    model_checkpoint = ModelCheckpoint('FetchPickAndPlace.{epoch:02d}-{val_loss:.4f}.hdf5',
+    model_checkpoint = ModelCheckpoint('FetchPickAndPlace_feature_reduced.{epoch:02d}-{val_loss:.4f}.hdf5',
                                        monitor='val_loss',                    # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -112,9 +99,8 @@ def train(model):
               epochs=1000,
               verbose=1,
               validation_split=0.2,
-              shuffle=True,
-              callbacks=[tf_board, model_checkpoint],
-              sample_weight=sample_weight)
+              shuffle=False,
+              callbacks=[tf_board, model_checkpoint])
 
 
 def test(model_for_25_nets):
@@ -124,14 +110,14 @@ def test(model_for_25_nets):
                               loss='mean_squared_error',
                               metrics=['mse'])
 
-    model_for_25_nets.load_weights('FetchPickAndPlace.872-0.0000.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FetchPickAndPlace_feature_reduced.14-0.0231.hdf5', by_name=True)
 
     while True:
 
-        two_state = np.zeros((2, 1, 25))
+        two_state = np.zeros((2, 1, 6))
         two_goal = np.zeros((2, 1, 3))
         observation = env.reset()
-        two_state[0, 0, :] = observation["observation"]
+        two_state[0, 0, :] = observation["observation"][0:6]
         two_goal[0, 0, :] = observation["desired_goal"]
 
         done = False
@@ -145,7 +131,7 @@ def test(model_for_25_nets):
             action = action_two[0, 0, :]
 
             observation, reward, done, info = env.step(action)
-            two_state[0, 0, :] = observation["observation"]
+            two_state[0, 0, :] = observation["observation"][0:6]
             two_goal[0, 0, :] = observation["desired_goal"]
 
             if done:
