@@ -122,7 +122,7 @@ for trajectory_num in range(5000):
     close = 0
 
     while not done:
-        # env.render()
+        env.render()
 
         action_category = policy(observation)
         action = np.zeros((4))

@@ -31,8 +31,6 @@ def train_model():
 
     model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
 
-    print(model.output)
-
     return model
 
 
@@ -67,9 +65,9 @@ def train(model):
     data = pickle.load(open('FetchPickAndPlace-category-5000.p', 'rb'))
     data = data.reshape((5000, 50, 58))
 
-    state_feed = data[:, :, 0:6]
-    action_feed = data[:, :, 25:29]
-    goal_feed = data[:, :, 54:57]
+    state_feed = data[0:500, :, 0:6]
+    action_feed = data[0:500, :, 25:29]
+    goal_feed = data[0:500, :, 54:57]
 
     action_x_feed = action_feed[:, :, 0]
     action_y_feed = action_feed[:, :, 1]
@@ -101,7 +99,7 @@ def train(model):
                                verbose=0,
                                mode='auto')
 
-    model_checkpoint = ModelCheckpoint('FetchPickAndPlace_category_feature_reduced.{epoch:02d}-{val_loss:.4f}.hdf5',
+    model_checkpoint = ModelCheckpoint('PnP_CT_FR_little_sample.{epoch:02d}-{val_loss:.4f}.hdf5',
                                        monitor='val_loss',                    # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -126,7 +124,7 @@ def test(model_for_25_nets):
                               metrics=['accuracy'],
                               )
 
-    model_for_25_nets.load_weights('FetchPickAndPlace_category_feature_reduced.590-0.1065.hdf5', by_name=True)
+    model_for_25_nets.load_weights('PnP_CT_FR_little_sample.590-0.6855.hdf5', by_name=True)
 
     while True:
 
@@ -228,8 +226,8 @@ def check_usage_for_lstm(model_for_25_nets):
 
 if __name__ == '__main__':
 
-    model = train_model()
+    # model = train_model()
     # train(model)
 
-    # model = test_model()
-    # test(model)
+    model = test_model()
+    test(model)

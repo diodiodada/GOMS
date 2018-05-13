@@ -40,10 +40,13 @@ goal: 3 position
 
 问题3：如何从gym中得到图片
 答案3：
-        1. env.render(mode='rgb_array')
-        2. ~/Documents/mujoco-py/mujoco_py/mjviewer.py中
+        1. 设置render的mode参数
+            env.render(mode='rgb_array')
+        2. 去除多余的显示信息
+            ~/Documents/mujoco-py/mujoco_py/mjviewer.py中
            class MjViewer 中
            self._hide_overlay = True
-        3. ~/anaconda3/envs/tf-cpu/lib/python3.6/site-packages/gym/envs/mujoco/mujoco_env.py中
+        3. 更改图片的大小
+            ~/anaconda3/envs/tf-cpu/lib/python3.6/site-packages/gym/envs/mujoco/mujoco_env.py中
            class:MujocoEnv function:render中
            width, height = 1744, 992
