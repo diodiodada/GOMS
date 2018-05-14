@@ -9,32 +9,10 @@ import gym
 import numpy as np
 
 
-def train_model_1():
-
-    state = Input(shape=(50, 25))
-    goal = Input(shape=(50, 3))
-
-    concat_0 = Concatenate(axis=-1)([state, goal])
-
-    concat_1 = Dense(50, activation='relu')(concat_0)
-    concat_2 = Dense(50, activation='relu')(concat_1)
-
-    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=False)(concat_2)
-    lstm_2 = LSTM(50, input_shape=(50, 100), return_sequences=True, return_state=False, stateful=False)(lstm_1)
-
-    concat_3 = Dense(50, activation='relu')(lstm_2)
-    concat_4 = Dense(50, activation='relu')(concat_3)
-
-    output = Dense(4)(concat_4)
-
-    model = Model(inputs=[state, goal], outputs=output, name='behavior_cloning')
-
-    return model
-
 def train_model():
 
-    state = Input(shape=(50, 25))
-    goal = Input(shape=(50, 3))
+    state = Input(shape=(180, 23))
+    goal = Input(shape=(180, 9))
 
     concat_0 = Concatenate(axis=-1)([state, goal])
 
@@ -58,8 +36,8 @@ def train_model():
 
 def test_model():
 
-    state = Input(shape=(1, 25), batch_shape=(2, 1, 25))
-    goal = Input(shape=(1, 3), batch_shape=(2, 1, 3))
+    state = Input(shape=(1, 23), batch_shape=(2, 1, 23))
+    goal = Input(shape=(1, 9), batch_shape=(2, 1, 9))
 
     concat_0 = Concatenate(axis=-1)([state, goal])
 
@@ -84,12 +62,11 @@ def test_model():
 def train(model):
 
     # get the data for training
-    data = pickle.load(open('FetchPickAndPlace-category-5000.p', 'rb'))
-    data = data.reshape((5000, 50, 58))
+    data = pickle.load(open('Pick-Place-Push-reshaped-category-1000.p', 'rb'))
 
-    state_feed = data[:, :, 0:25]
-    action_feed = data[:, :, 25:29]
-    goal_feed = data[:, :, 54:57]
+    state_feed = data[:, :, 0:23]
+    action_feed = data[:, :, 32:36]
+    goal_feed = data[:, :, 23:32]
 
     action_x_feed = action_feed[:, :, 0]
     action_y_feed = action_feed[:, :, 1]
@@ -121,7 +98,7 @@ def train(model):
                                verbose=0,
                                mode='auto')
 
-    model_checkpoint = ModelCheckpoint('FetchPickAndPlace_category.{epoch:02d}-{val_loss:.4f}.hdf5',
+    model_checkpoint = ModelCheckpoint('pick-place-push_category.{epoch:02d}-{val_loss:.4f}.hdf5',
                                        monitor='val_loss',                    # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -139,6 +116,8 @@ def train(model):
 
 
 def test(model_for_25_nets):
+    step_size = 0.01
+
     env = gym.make('FetchPickAndPlace-v0')
 
     model_for_25_nets.compile(optimizer=Adam(lr=1e-4),
@@ -146,15 +125,15 @@ def test(model_for_25_nets):
                               metrics=['accuracy'],
                               )
 
-    model_for_25_nets.load_weights('FetchPickAndPlace_category.507-0.0518.hdf5', by_name=True)
+    model_for_25_nets.load_weights('pick-place-push_category.228-1.0890.hdf5', by_name=True)
 
     while True:
 
-        two_state = np.zeros((2, 1, 25))
-        two_goal = np.zeros((2, 1, 3))
+        two_state = np.zeros((2, 1, 23))
+        two_goal = np.zeros((2, 1, 9))
         observation = env.reset()
-        two_state[0, 0, :] = observation["observation"]
-        two_goal[0, 0, :] = observation["desired_goal"]
+        two_state[0, 0, :] = observation["my_new_observation"][0:23]
+        two_goal[0, 0, :] = observation["my_new_observation"][23:32]
 
         done = False
 
@@ -174,23 +153,23 @@ def test(model_for_25_nets):
             if x.argmax() == 0:
                 action[0] = 0
             elif x.argmax() == 1:
-                action[0] = -0.5
+                action[0] = -(step_size/0.03)
             elif x.argmax() == 2:
-                action[0] = 0.5
+                action[0] = (step_size/0.03)
 
             if y.argmax() == 0:
                 action[1] = 0
             elif y.argmax() == 1:
-                action[1] = -0.5
+                action[1] = -(step_size/0.03)
             elif y.argmax() == 2:
-                action[1] = 0.5
+                action[1] = (step_size/0.03)
 
             if z.argmax() == 0:
                 action[2] = 0
             elif z.argmax() == 1:
-                action[2] = -0.5
+                action[2] = -(step_size/0.03)
             elif z.argmax() == 2:
-                action[2] = 0.5
+                action[2] = (step_size/0.03)
 
             if hand.argmax() == 0:
                 action[3] = -1.0
@@ -198,8 +177,8 @@ def test(model_for_25_nets):
                 action[3] = 1.0
 
             observation, reward, done, info = env.step(action)
-            two_state[0, 0, :] = observation["observation"]
-            two_goal[0, 0, :] = observation["desired_goal"]
+            two_state[0, 0, :] = observation["my_new_observation"][0:23]
+            two_goal[0, 0, :] = observation["my_new_observation"][23:32]
 
             if done:
                 print(True)

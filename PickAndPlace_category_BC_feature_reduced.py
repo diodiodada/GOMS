@@ -31,8 +31,6 @@ def train_model():
 
     model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
 
-    print(model.output)
-
     return model
 
 
