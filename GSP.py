@@ -125,7 +125,7 @@ def test(model_for_25_nets):
                               metrics=['accuracy'],
                               )
 
-    model_for_25_nets.load_weights('pick-place-push_category.228-1.0890.hdf5', by_name=True)
+    model_for_25_nets.load_weights('ppp-category.967-0.6477.hdf5', by_name=True)
 
     while True:
 
