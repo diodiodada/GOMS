@@ -119,6 +119,7 @@ def measure_network():
 
     return model
 
+
 def measure_network_without_g():
 
     s_1 = Input(shape=(9,))

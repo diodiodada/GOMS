@@ -25,6 +25,8 @@ def generate_data():
     train_x = []
     train_y = []
 
+#                               go up   go up  go down
+# let true value from [ -step*i, ..., 0, ..., 1, ..., 1-(29-j)*step ]
     for num_tra in range(num_trajectory):
         for i in range(29):
             for j in range(29, 30):

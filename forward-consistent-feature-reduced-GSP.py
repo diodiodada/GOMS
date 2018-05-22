@@ -199,7 +199,7 @@ def test(model_for_25_nets):
                                        'hand': 'acc'},
                               )
 
-    model_for_25_nets.load_weights('FCFR-GSP.46-1.9105.hdf5', by_name=True)
+    model_for_25_nets.load_weights('FCFR-GSP.1000-0.7871.hdf5', by_name=True)
 
     i = np.array([0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16])
     while True:

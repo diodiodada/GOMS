@@ -226,8 +226,8 @@ def check_usage_for_lstm(model_for_25_nets):
 
 if __name__ == '__main__':
 
-    model = train_model()
+    # model = train_model()
     # train(model)
 
-    # model = test_model()
-    # test(model)
+    model = test_model()
+    test(model)
