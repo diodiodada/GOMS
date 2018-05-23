@@ -3,7 +3,6 @@ from keras.layers import *
 from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from keras.optimizers import *
 from keras.utils import to_categorical
-from keras.utils.vis_utils import plot_model
 import pickle
 import gym
 import numpy as np
@@ -88,7 +87,6 @@ def test_model():
     model = Model(inputs=[state, goal], outputs=[b_output_x, b_output_y, b_output_z, b_output_hand])
 
     return model
-
 
 
 def train(model):
@@ -306,11 +304,11 @@ def check_usage_for_lstm(model_for_25_nets):
 
 if __name__ == '__main__':
 
-    # model = train_model()
+    model = train_model()
     # train(model)
 
-    model = test_model()
-    test(model)
+    # model = test_model()
+    # test(model)
 
 
     # check_usage_for_lstm(model)
