@@ -50,3 +50,15 @@ goal: 3 position
             ~/anaconda3/envs/tf-cpu/lib/python3.6/site-packages/gym/envs/mujoco/mujoco_env.py中
            class:MujocoEnv function:render中
            width, height = 1744, 992
+
+
+
+注意注意！！！！
+    之前的代码 “forward-consistent-feature-reduced-GSP.py” 有错误
+    在 train 函数的 next_state_feed 的获取中，我应该把 j+36 而不是加 32 ！！！！
+
+
+问题4：如果模型A包含模型B，如何在模型A中加载模型B预训练好的权重？
+
+    我的一个担忧是：如果在模型A中直接调用模型B，（即把模型B当做一个层来调用）那么在模型A中加载模型B的权重会成功吗？
+    更保险地做法是：在模型A中加入和模型B一模一样的层，而不是直接调用B。

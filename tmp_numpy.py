@@ -11,5 +11,8 @@ import random
 #     print(random.randint(0, 3))
 
 
-for i in range(10, 20):
-    print(i)
+arr = np.arange(9).reshape((3, 3))
+print(arr)
+print()
+np.random.shuffle(arr)
+print(arr)
