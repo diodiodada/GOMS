@@ -5,8 +5,16 @@ from keras.optimizers import *
 from keras.utils import to_categorical
 from keras.utils.vis_utils import plot_model
 import pickle
-import gym
+# import gym
 import numpy as np
+
+import tensorflow as tf
+from keras.backend.tensorflow_backend import set_session
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+config.gpu_options.visible_device_list = '3'
+set_session(tf.Session(config=config))
 
 
 def metric_net():
@@ -304,9 +312,9 @@ def reshape_data(filename):
     num_index = np.array(num_index)
     print("mean:", num_length.mean(), "variance:", num_length.var(), "max:", num_length.max(), "min:", num_length.min())
 
-    data_reshape = np.zeros((1000, 200, 69))
+    data_reshape = np.zeros((num_length.shape[0], 200, 69))
 
-    for i in range(1000):
+    for i in range(num_length.shape[0]):
         data_reshape[i, 0:num_length[i], :] = data[num_index[i] - num_length[i] + 1:num_index[i] + 1, :]
 
     return data_reshape
@@ -314,7 +322,7 @@ def reshape_data(filename):
 
 def train_our_model_copy(model):
     # data = reshape_data('Pick-Place-Push-category-4-paths-1000.p')
-    data = reshape_data('Pick-Place-Push-category-1000.p')
+    data = reshape_data('Pick-Place-Push-category-10000.p')
 
     # ==== get state feed ====
     i = np.array([0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16])
@@ -370,7 +378,7 @@ def train_our_model_copy(model):
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    model_checkpoint = ModelCheckpoint('our-GSP-one.{epoch:d}-{val_loss:.6f}.hdf5',
+    model_checkpoint = ModelCheckpoint('our-GSP-10000-tra.{epoch:d}-{val_loss:.6f}.hdf5',
                                        monitor='val_loss',  # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -384,7 +392,7 @@ def train_our_model_copy(model):
                action_hand_feed,
                next_state_feed,
                score_feed],
-              batch_size=50,
+              batch_size=500,
               # initial_epoch=201,
               epochs=1000,
               verbose=1,
@@ -523,14 +531,15 @@ def check_usage_for_lstm(model):
 # train_metrics_net(metrics_model)
 
 
-# model = our_model_copy()
-# train_our_model_copy(model)
+model = our_model_copy()
+train_our_model_copy(model)
 
 
-model = our_model_copy_for_test()
-test_our_model_copy(model)
+# model = our_model_copy_for_test()
+# test_our_model_copy(model)
 
 
 # model = our_model_copy_for_test()
 # check_usage_for_lstm(model)
+
 
