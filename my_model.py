@@ -13,7 +13,7 @@ from keras.backend.tensorflow_backend import set_session
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-config.gpu_options.visible_device_list = '3'
+config.gpu_options.visible_device_list = '2'
 set_session(tf.Session(config=config))
 
 
@@ -66,9 +66,9 @@ def our_model_copy():
     # =========== backward_model ===========
     b_concat_0 = Concatenate(axis=-1)([state, goal])
 
-    masking_1 = Masking(mask_value=0.0)(b_concat_0)
+    # masking_1 = Masking(mask_value=0.0)(b_concat_0)
 
-    b_concat_1 = Dense(50, activation='relu', name="b_concat_1")(masking_1)
+    b_concat_1 = Dense(50, activation='relu', name="b_concat_1")(b_concat_0)
     b_concat_2 = Dense(50, activation='relu', name="b_concat_2")(b_concat_1)
 
     b_lstm_1 = LSTM(100, return_sequences=True, return_state=False, stateful=False, name="b_lstm_1")(b_concat_2)
@@ -139,44 +139,8 @@ def our_model_copy_for_test():
     return model
 
 
-# def our_model():
-#     state = Input(shape=(None, 11))
-#     goal = Input(shape=(None, 3))
-#
-#     # =========== backward_model ===========
-#     b_concat_0 = Concatenate(axis=-1)([state, goal])
-#
-#     b_concat_1 = Dense(50, activation='relu', name="b_concat_1")(b_concat_0)
-#     b_concat_2 = Dense(50, activation='relu', name="b_concat_2")(b_concat_1)
-#
-#     b_lstm_1 = LSTM(100, return_sequences=True, return_state=False, stateful=False, name="b_lstm_1")(b_concat_2)
-#
-#     b_concat_3 = Dense(50, activation='relu', name="b_concat_3")(b_lstm_1)
-#     b_concat_4 = Dense(50, activation='relu', name="b_concat_4")(b_concat_3)
-#
-#     b_output_x = Dense(3, activation='softmax', name="x")(b_concat_4)
-#     b_output_y = Dense(3, activation='softmax', name="y")(b_concat_4)
-#     b_output_z = Dense(3, activation='softmax', name="z")(b_concat_4)
-#     b_output_hand = Dense(2, activation='softmax', name="hand")(b_concat_4)
-#
-#     action_estimate = Concatenate(axis=-1)([b_output_x, b_output_y, b_output_z, b_output_hand])
-#
-#     # =========== forward_model ===========
-#     forward = forward_net()
-#     forward.trainable = False
-#     next_state_estimate = forward([state, action_estimate])
-#
-#     # =========== metrics_model ===========
-#     metrics = metric_net()
-#     metrics.trainable = False
-#     score = metrics([state, next_state_estimate, goal])
-#
-#     model = Model(inputs=[state, goal], outputs=[action_estimate, next_state_estimate, score], name='our_model')
-#     return model
-
-
 def train_forward_net(model):
-    data = pickle.load(open('Pick-Place-Push-category-4-paths-1000.p', 'rb'))
+    data = pickle.load(open('Pick-Place-Push-category-4-paths-40000.p', 'rb'))
 
     # get state feed
     i = np.array([0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16])
@@ -202,7 +166,7 @@ def train_forward_net(model):
     action_feed = np.append(action_feed, action_z_feed, axis=-1)
     action_feed = np.append(action_feed, action_hand_feed, axis=-1)
 
-    model.compile(optimizer=Adam(lr=1e-4),
+    model.compile(optimizer=Adam(lr=1e-4, decay=1e-6),
                   loss='mse',
                   )
 
@@ -214,7 +178,7 @@ def train_forward_net(model):
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    model_checkpoint = ModelCheckpoint('F.{epoch:d}-{val_loss:.6f}.hdf5',
+    model_checkpoint = ModelCheckpoint('F.{epoch:d}-{val_loss:.8f}.hdf5',
                                        monitor='val_loss',  # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -222,7 +186,7 @@ def train_forward_net(model):
 
     model.fit([state_feed, action_feed],
               next_state_feed,
-              batch_size=500,
+              batch_size=10000,
               # initial_epoch=201,
               epochs=500,
               verbose=1,
@@ -232,7 +196,7 @@ def train_forward_net(model):
 
 
 def train_metrics_net(model):
-    data = pickle.load(open('Pick-Place-Push-category-4-paths-1000.p', 'rb'))
+    data = pickle.load(open('Pick-Place-Push-category-4-paths-40000.p', 'rb'))
 
     i = np.array([0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16])
     state_feed = data[:, i]
@@ -259,7 +223,7 @@ def train_metrics_net(model):
 
     # score_feed = to_categorical(score_feed, 2)
 
-    model.compile(optimizer=Adam(lr=1e-4),
+    model.compile(optimizer=Adam(lr=1e-4, decay=1e-6),
                   loss='binary_crossentropy',
                   metrics=['acc']
                   )
@@ -274,7 +238,7 @@ def train_metrics_net(model):
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    model_checkpoint = ModelCheckpoint('M.{epoch:d}-{val_loss:.6f}.hdf5',
+    model_checkpoint = ModelCheckpoint('M.{epoch:d}-{val_loss:.8f}.hdf5',
                                        monitor='val_loss',  # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -282,7 +246,7 @@ def train_metrics_net(model):
 
     model.fit([state_a_feed, state_b_feed, goal_feed],
               score_feed,
-              batch_size=500,
+              batch_size=10000,
               # initial_epoch=652,
               epochs=1000,
               verbose=1,
@@ -310,7 +274,7 @@ def reshape_data(filename):
 
     num_length = np.array(num_length)
     num_index = np.array(num_index)
-    print("mean:", num_length.mean(), "variance:", num_length.var(), "max:", num_length.max(), "min:", num_length.min())
+    print("mean:", num_length.mean(), "variance:", num_length.var(), "max:", num_length.max(), "min:", num_length.min(), "length:", num_length.shape[0])
 
     data_reshape = np.zeros((num_length.shape[0], 200, 69))
 
@@ -322,7 +286,7 @@ def reshape_data(filename):
 
 def train_our_model_copy(model):
     # data = reshape_data('Pick-Place-Push-category-4-paths-1000.p')
-    data = reshape_data('Pick-Place-Push-category-10000.p')
+    data = reshape_data('Pick-Place-Push-category-4-paths-40000.p')
 
     # ==== get state feed ====
     i = np.array([0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16])
@@ -356,7 +320,7 @@ def train_our_model_copy(model):
                         'categorical_crossentropy',
                         'categorical_crossentropy',
                         'mse',
-                        'binary_crossentropy'],
+                        'mse'],
 
                   metrics={'b_output_x': 'acc',
                            'b_output_y': 'acc',
@@ -367,10 +331,10 @@ def train_our_model_copy(model):
                   loss_weights=[1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
                   )
 
-    model.load_weights('M.826-0.122378.hdf5', by_name=True)
-    model.load_weights('F.490-0.000002.hdf5', by_name=True)
+    model.load_weights('M.401-0.05815697.hdf5', by_name=True)
+    model.load_weights('F.215-0.00000220.hdf5', by_name=True)
 
-    tf_board = TensorBoard(log_dir='./logs',
+    tf_board = TensorBoard(log_dir='./logs-for-bc',
                            histogram_freq=0,
                            write_graph=True,
                            write_images=False,
@@ -378,7 +342,7 @@ def train_our_model_copy(model):
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    model_checkpoint = ModelCheckpoint('our-GSP-10000-tra.{epoch:d}-{val_loss:.6f}.hdf5',
+    model_checkpoint = ModelCheckpoint('our-bc.{epoch:d}-{val_loss:.6f}.hdf5',
                                        monitor='val_loss',  # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -418,7 +382,7 @@ def test_our_model_copy(model):
                            'b_output_hand': 'acc'},
                   )
 
-    model.load_weights('our-GSP-one.999-1.265106.hdf5', by_name=True)
+    model.load_weights('our.806-2.592856.hdf5', by_name=True)
 
     i = np.array([0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16])
     while True:
@@ -541,5 +505,4 @@ train_our_model_copy(model)
 
 # model = our_model_copy_for_test()
 # check_usage_for_lstm(model)
-
 
