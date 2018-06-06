@@ -60,7 +60,7 @@ def plot_2d_pic():
         fig.clf()
 
 
-def plot_4d_pic():
+def plot_3d_pic():
 
     for i in range(observation.shape[0]):
         X = [gripper_position[i, 0],
@@ -99,3 +99,7 @@ def plot_4d_pic():
 
         # plt.show()
         fig.clf()
+
+
+plot_3d_pic()
+

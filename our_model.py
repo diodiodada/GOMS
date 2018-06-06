@@ -59,7 +59,7 @@ def forward_net():
     return model
 
 
-def our_model_copy():
+def our_model():
     state = Input(shape=(200, 11))
     goal = Input(shape=(200, 3))
 
@@ -113,7 +113,7 @@ def our_model_copy():
     return model
 
 
-def our_model_copy_for_test():
+def our_model_for_test():
 
     state = Input(shape=(1, 11), batch_shape=(2, 1, 11))
     goal = Input(shape=(1, 3), batch_shape=(2, 1, 3))
@@ -284,7 +284,7 @@ def reshape_data(filename):
     return data_reshape
 
 
-def train_our_model_copy(model):
+def train_our_model(model):
     # data = reshape_data('Pick-Place-Push-category-4-paths-1000.p')
     data = reshape_data('Pick-Place-Push-category-4-paths-40000.p')
 
@@ -365,7 +365,7 @@ def train_our_model_copy(model):
               callbacks=[tf_board, model_checkpoint])
 
 
-def test_our_model_copy(model):
+def test_our_model(model):
     step_size = 0.01
 
     env = gym.make('FetchPickAndPlace-v0')
@@ -495,14 +495,14 @@ def check_usage_for_lstm(model):
 # train_metrics_net(metrics_model)
 
 
-model = our_model_copy()
-train_our_model_copy(model)
+model = our_model()
+train_our_model(model)
 
 
-# model = our_model_copy_for_test()
-# test_our_model_copy(model)
-
-
-# model = our_model_copy_for_test()
+# model = our_model_for_test()
+# test_our_model(model)
+#
+#
+# model = our_model_for_test()
 # check_usage_for_lstm(model)
 

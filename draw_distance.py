@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 data_original = pickle.load(open('Pick-Place-Push-reshaped-category-1000.p', 'rb'))
 
 for j in range(10):
-    data = data_original[j+10, :, :]
+    data = data_original[j, :, :]
     print(data.shape)
 
     x = np.linspace(0, 179, 180)
