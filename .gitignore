@@ -1,8 +1,8 @@
 .idea/
-logs/
+logs*/
 image/
 data/
-weights/
-PickAndPlace_category_feature_reduced_weights/
+weights*/
+
 *.hdf5
 *.p

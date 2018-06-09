@@ -14,12 +14,11 @@ from keras.backend.tensorflow_backend import set_session
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-config.gpu_options.visible_device_list = '2'
+config.gpu_options.visible_device_list = '3'
 set_session(tf.Session(config=config))
 
 
 def reshape_data(filename):
-
     data = pickle.load(open(filename, 'rb'))
 
     # data normalization
@@ -72,13 +71,13 @@ def reshape_data(filename):
 
     data_reshape = np.zeros((num_length.shape[0], 400, 51))
 
-    state_0 = np.zeros((num_length.shape[0], 23))
-    state_g = np.zeros((num_length.shape[0], 23))
+    state_0 = np.zeros((num_length.shape[0], 51))
+    state_g = np.zeros((num_length.shape[0], 51))
 
     for i in range(num_length.shape[0]):
         data_reshape[i, 0:num_length[i], :] = data[num_index[i] - num_length[i] + 1:num_index[i] + 1, :]
-        state_0[i, :] = data[num_index[i]-num_length[i]+1, 0:23]
-        state_g[i, :] = data[num_index[i], 0:23]
+        state_0[i, :] = data[num_index[i] - num_length[i] + 1, :]
+        state_g[i, :] = data[num_index[i], :]
 
     return data_reshape, state_0, state_g
 
@@ -88,10 +87,9 @@ def get_padding(x):
 
 
 def trajectory_encoder():
-
-    states = Input(shape=(400, 23))
-    state_0 = Input(shape=(23,))
-    state_g = Input(shape=(23,))
+    states = Input(shape=(400, 17))
+    state_0 = Input(shape=(17,))
+    state_g = Input(shape=(17,))
 
     states_padding = Lambda(get_padding)(states)
 
@@ -108,8 +106,8 @@ def trajectory_encoder():
     # =========== decoder ===========
 
     d_concat_0 = Concatenate(axis=-1)([e_dense_4, state_0, state_g])
-    d_dense_0 = Dense(23, activation='relu', name="d_dense_0")(d_concat_0)
-    d_reshape = Reshape((1, 23))(d_dense_0)
+    d_dense_0 = Dense(17, activation='relu', name="d_dense_0")(d_concat_0)
+    d_reshape = Reshape((1, 17))(d_dense_0)
     d_concat_1 = Concatenate(axis=1)([d_reshape, states_padding])
 
     d_dense_1 = Dense(50, activation='relu', name="d_dense_1")(d_concat_1)
@@ -120,7 +118,7 @@ def trajectory_encoder():
     d_dense_3 = Dense(50, activation='relu', name="d_dense_3")(d_lstm_1)
     d_dense_4 = Dense(50, activation='relu', name="d_dense_4")(d_dense_3)
 
-    d_output = Dense(23, activation='relu', name="d_output")(d_dense_4)
+    d_output = Dense(17, activation='relu', name="d_output")(d_dense_4)
 
     model = Model(inputs=[states, state_0, state_g],
                   outputs=d_output,
@@ -132,18 +130,19 @@ def trajectory_encoder():
 
 
 def train_trajectory_encoder(model):
-
-    data, state_0_feed, state_g_feed = reshape_data('data/PP-24-paths-24000.p')
+    data, state_0, state_g = reshape_data('data/PP-24-paths-24000.p')
 
     # ==== get feed data ====
-    states_feed = data[:, :, 0:23]
-    output_feed = data[:, :, 0:23]
+    states_feed = data[:, :, 0:17]
+    state_0_feed = state_0[:, 0:17]
+    state_g_feed = state_g[:, 0:17]
+    output_feed = data[:, :, 0:17]
 
     model.compile(optimizer=Adam(lr=1e-4),
                   loss='mse',
                   )
 
-    tf_board = TensorBoard(log_dir='./logs',
+    tf_board = TensorBoard(log_dir='./logs-3',
                            histogram_freq=0,
                            write_graph=True,
                            write_images=False,
@@ -151,7 +150,7 @@ def train_trajectory_encoder(model):
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    model_checkpoint = ModelCheckpoint('weights/tra-encoder.{epoch:d}-{val_loss:.6f}.hdf5',
+    model_checkpoint = ModelCheckpoint('weights-3/tra-encoder.{epoch:d}-{val_loss:.6f}.hdf5',
                                        monitor='val_loss',  # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -172,3 +171,5 @@ def train_trajectory_encoder(model):
 
 model = trajectory_encoder()
 train_trajectory_encoder(model)
+
+
