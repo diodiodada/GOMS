@@ -10,8 +10,13 @@ a = [[1, 2, 3],
 a = np.array(a)
 
 print(a)
-print(a.max())
-print(a.min())
+print()
 
-a = (a - a.min()) / (a.max() - a.min())
+print(a.mean())
+print(a.std())
+print(a.var())
+print(a.std() * a.std())
+print()
+
+a = (a - a.mean()) / a.std()
 print(a)

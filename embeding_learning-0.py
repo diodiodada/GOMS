@@ -30,18 +30,18 @@ def reshape_data(filename):
     data_y = data[:, y]
     data_z = data[:, z]
 
-    print("data_x.min:", data_x.min())
-    print("data_x.max:", data_x.max())
+    print("data_x.mean:", data_x.mean())
+    print("data_x.std:", data_x.std())
 
-    print("data_y.min:", data_y.min())
-    print("data_y.max:", data_y.max())
+    print("data_y.mean:", data_y.mean())
+    print("data_y.std:", data_y.std())
 
-    print("data_z.min:", data_z.min())
-    print("data_z.max:", data_z.max())
+    print("data_z.mean:", data_z.mean())
+    print("data_z.std:", data_z.std())
 
-    data_x = (data_x - data_x.min()) / (data_x.max() - data_x.min())
-    data_y = (data_y - data_y.min()) / (data_y.max() - data_y.min())
-    data_z = (data_z - data_z.min()) / (data_z.max() - data_z.min())
+    data_x = (data_x - data_x.mean()) / data_x.std()
+    data_y = (data_y - data_y.mean()) / data_y.std()
+    data_z = (data_z - data_z.mean()) / data_z.std()
 
     data[:, x] = data_x
     data[:, y] = data_y
@@ -136,15 +136,15 @@ def train_trajectory_encoder(model):
                   loss='mse',
                   )
 
-    tf_board = TensorBoard(log_dir='./logs-4',
-                           histogram_freq=10,
+    tf_board = TensorBoard(log_dir='./logs-0',
+                           histogram_freq=30,
                            write_graph=True,
-                           write_images=True,
+                           write_images=False,
                            embeddings_freq=0,
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    model_checkpoint = ModelCheckpoint('weights-4/tra-encoder.{epoch:d}-{val_loss:.6f}.hdf5',
+    model_checkpoint = ModelCheckpoint('weights-0/tra-encoder.{epoch:d}-{val_loss:.6f}.hdf5',
                                        monitor='val_loss',  # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
