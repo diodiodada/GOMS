@@ -264,28 +264,35 @@ def train(model):
               callbacks=[tf_board, model_checkpoint])
 
 
-def test(top_model, sub_model):
+def test(top_model, sub_model, metric_model):
     env = gym.make('FetchPickAndPlace-v0')
 
     top_model.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy', metrics=['accuracy'])
-
     top_model.load_weights('weights-top4/top4.247-0.0000.hdf5')
 
     sub_model.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy', metrics=['accuracy'])
-
     sub_model.load_weights('weights-sub-end-random/sub-end-random.442-0.0675.hdf5')
+
+    metric_model.compile(optimizer=Adam(lr=1e-4), loss='mse')
+    metric_model.load_weights('weights-m/1-M.5966-5.16955442.hdf5')
 
     env.reset()
 
     env.step([0, 0, 0, 0])
     env.render()
 
-    while True:
+    rollout_times = 0
+
+    while rollout_times < 10:
+        rollout_times += 1
 
         two_state_top = np.zeros((2, 1, 21))
 
         two_state_sub = np.zeros((2, 1, 6))
         two_goal_sub = np.zeros((2, 1, 3))
+
+        two_metric_state = np.zeros((2, 17))
+        two_metric_goal = np.zeros((2, 6))
 
         observation = env.reset()
 
@@ -298,13 +305,14 @@ def test(top_model, sub_model):
               17, 18, 19, 20, 21, 22]
         two_state_top[0, 0, :] = data[ii]
 
+        print(rollout_times)
         done = False
 
         top_model.reset_states()
         sub_model.reset_states()
 
         last_index = 0
-
+        score_array = []
         while not done:
 
             env.render()
@@ -317,19 +325,19 @@ def test(top_model, sub_model):
             goal_index = [0, 0, 0]
 
             if choice.argmax() == 0:
-                print("0")
+                print("============== step 1 ==============")
                 sub_model.reset_states()
                 state_index = [0, 1, 2, 5, 6, 7]
                 goal_index = [11, 12, 13]
 
             elif choice.argmax() == 1:
-                print("1")
+                print("============== step 2 ==============")
                 sub_model.reset_states()
                 state_index = [0, 1, 2, 8, 9, 10]
                 goal_index = [14, 15, 16]
 
             elif choice.argmax() == 2:
-                print("2")
+                print("============== step 3 ==============")
                 sub_model.reset_states()
                 state_index = [0, 1, 2, 11, 12, 13]
                 goal_index = [17, 18, 19]
@@ -339,7 +347,7 @@ def test(top_model, sub_model):
                     break
                 else:
                     last_index = 3
-                print("3")
+                print("============== step 4 ==============")
                 sub_model.reset_states()
                 state_index = [0, 1, 2, 14, 15, 16]
                 goal_index = [20, 21, 22]
@@ -349,7 +357,21 @@ def test(top_model, sub_model):
                 two_state_sub[0, 0, :] = data[state_index]
                 two_goal_sub[0, 0, :] = data[goal_index]
 
+                two_metric_state[0, :] = data[0:17]
+                two_metric_goal[0, :] = data[17:23]
+
                 # =============== action ===============
+
+                score = metric_model.predict_on_batch([two_metric_state, two_metric_goal])
+                D_1 = data[5:8] - data[17:20]
+                D_2 = data[11:14] - data[17:20]
+                D_3 = data[8:11] - data[20:23]
+                D_4 = data[14:17] - data[20:23]
+                D_1 = abs(D_1[0]) + abs(D_1[1]) + abs(D_1[2])
+                D_2 = abs(D_2[0]) + abs(D_2[1]) + abs(D_2[2])
+                D_3 = abs(D_3[0]) + abs(D_3[1]) + abs(D_3[2])
+                D_4 = abs(D_4[0]) + abs(D_4[1]) + abs(D_4[2])
+                D = D_1 + D_2 + D_3 + D_4
 
                 two_x, two_y, two_z, two_hand, two_end = sub_model.predict_on_batch([two_state_sub, two_goal_sub])
 
@@ -369,11 +391,32 @@ def test(top_model, sub_model):
 
                     break
 
+                score_array.append([score[0, 0], D])
+
                 action = get_control_signal(x, y, z, hand)
 
                 observation, reward, done, info = env.step(action)
                 data = observation["my_new_observation"]
                 data = data_normalize(data)
+
+        array = np.array(score_array)
+        pickle.dump(array, open("score-" + str(rollout_times) + ".p", "wb"))
+
+
+def metric_net():
+    state = Input(shape=(17,))
+    goal = Input(shape=(6,))
+
+    m_concat_0 = Concatenate(axis=-1)([state, goal])
+
+    m_dense_1 = Dense(64, activation='relu', name='m_dense_1')(m_concat_0)
+    m_dense_2 = Dense(64, activation='relu', name='m_dense_2')(m_dense_1)
+    m_dense_3 = Dense(64, activation='relu', name='m_dense_3')(m_dense_2)
+    m_output_step = Dense(1,  activation=None,  name="m_output_step")(m_dense_3)
+
+    model = Model(inputs=[state, goal], outputs=m_output_step, name='metric_net')
+
+    return model
 
 
 def check_usage_for_lstm(model_for_25_nets):
@@ -423,4 +466,5 @@ def check_usage_for_lstm(model_for_25_nets):
 import gym
 sub = test_model_sub()
 top = test_model()
-test(top, sub)
+metric = metric_net()
+test(top, sub, metric)

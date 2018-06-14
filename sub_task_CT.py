@@ -8,11 +8,14 @@ import pickle
 import numpy as np
 import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
+import time
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 config.gpu_options.visible_device_list = '1'
 set_session(tf.Session(config=config))
+
+max_data_length = 120
 
 
 def get_data(filename):
@@ -20,7 +23,7 @@ def get_data(filename):
     data = pickle.load(open(filename, 'rb'))
 
     # data normalization
-    x = np.array([0, 5, 8, 11, 14, 17, 20, 27, 32, 35, 38, 41, 44, 47])
+    x = np.array([0, 5, 8, 11, 14, 17, 20, 28, 33, 36, 39, 42, 45, 48])
     y = x + 1
     z = x + 2
 
@@ -77,7 +80,7 @@ def get_data(filename):
           "min:", num_length.min(),
           "length:", num_length.shape[0])
 
-    data_reshape = np.zeros((num_length.shape[0], 100, 51))
+    data_reshape = np.zeros((num_length.shape[0], max_data_length, 52))
 
     for i in range(num_length.shape[0]):
         data_reshape[i, 0:num_length[i], :] = data[num_index[i] - num_length[i] + 1:num_index[i] + 1, :]
@@ -87,12 +90,14 @@ def get_data(filename):
 
 def train_model():
 
-    state = Input(shape=(100, 6))
-    goal = Input(shape=(100, 3))
+    state = Input(shape=(max_data_length, 6))
+    goal = Input(shape=(max_data_length, 3))
 
     concat_0 = Concatenate(axis=-1)([state, goal])
 
-    concat_1 = Dense(50, activation='relu')(concat_0)
+    masking = Masking(mask_value=0.0)(concat_0)
+
+    concat_1 = Dense(50, activation='relu')(masking)
     concat_2 = Dense(50, activation='relu')(concat_1)
 
     lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=False)(concat_2)
@@ -104,8 +109,9 @@ def train_model():
     output_y = Dense(3, activation='softmax', name="y")(concat_4)
     output_z = Dense(3, activation='softmax', name="z")(concat_4)
     output_hand = Dense(2, activation='softmax', name="hand")(concat_4)
+    output_end = Dense(2, activation='softmax', name="output_end")(concat_4)
 
-    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
+    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand, output_end], name='behavior_cloning')
 
     return model
 
@@ -129,8 +135,9 @@ def test_model():
     output_y = Dense(3, activation='softmax', name="y")(concat_4)
     output_z = Dense(3, activation='softmax', name="z")(concat_4)
     output_hand = Dense(2, activation='softmax', name="hand")(concat_4)
+    output_end = Dense(2, activation='softmax', name="output_end")(concat_4)
 
-    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
+    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand, output_end], name='behavior_cloning')
 
     return model
 
@@ -138,12 +145,13 @@ def test_model():
 def train(model):
 
     # get the data for training
-    data = get_data("data/PP-1-paths-1000-[0].p")
+    data = get_data("data/PP-1-paths-1000-[0]-end-flag-random-init.p")
     i = [0, 1, 2, 5, 6, 7]
     j = [11, 12, 13]
     state_feed = data[:, :, i]
-    action_feed = data[:, :, 23:27]
     goal_feed = data[:, :, j]
+    action_feed = data[:, :, 23:27]
+    end_feed = data[:, :, 27]
 
     action_x_feed = action_feed[:, :, 0]
     action_y_feed = action_feed[:, :, 1]
@@ -154,6 +162,7 @@ def train(model):
     action_y_feed = to_categorical(action_y_feed, 3)
     action_z_feed = to_categorical(action_z_feed, 3)
     action_hand_feed = to_categorical(action_hand_feed, 2)
+    end_feed = to_categorical(end_feed, 2)
 
     model.compile(optimizer=Adam(lr=1e-4),
                   loss='categorical_crossentropy',
@@ -162,7 +171,7 @@ def train(model):
 
     # model.load_weights('FetchPickAndPlace.199-0.0034.hdf5', by_name=True)
 
-    tf_board = TensorBoard(log_dir='./logs-sub-ct',
+    tf_board = TensorBoard(log_dir='./logs-sub-end-random',
                            histogram_freq=0,
                            write_graph=True,
                            write_images=False,
@@ -175,14 +184,14 @@ def train(model):
                                verbose=0,
                                mode='auto')
 
-    model_checkpoint = ModelCheckpoint('weights-sub-ct/sub-ct.{epoch:02d}-{val_loss:.4f}.hdf5',
+    model_checkpoint = ModelCheckpoint('weights-sub-end-random/sub-end-random.{epoch:02d}-{val_loss:.4f}.hdf5',
                                        monitor='val_loss',                    # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
                                        save_weights_only=True)
 
     model.fit([state_feed, goal_feed],
-              [action_x_feed, action_y_feed, action_z_feed, action_hand_feed],
+              [action_x_feed, action_y_feed, action_z_feed, action_hand_feed, end_feed],
               batch_size=50,
               # initial_epoch=201,
               epochs=1000,
@@ -200,10 +209,18 @@ def test(model_for_25_nets):
                               metrics=['accuracy'],
                               )
 
-    model_for_25_nets.load_weights('weights-sub-ct/sub-ct.390-0.0620.hdf5', by_name=True)
+    model_for_25_nets.load_weights('weights-sub-end-random/sub-end-random.442-0.0675.hdf5', by_name=True)
+
+    test_times = 0
+
+    env.reset()
+
+    env.step([0, 0, 0, 0])
+    env.render()
 
     while True:
 
+        test_times += 1
         two_state = np.zeros((2, 1, 6))
         two_goal = np.zeros((2, 1, 3))
         observation = env.reset()
@@ -233,24 +250,38 @@ def test(model_for_25_nets):
         data[y] = data_y
         data[z] = data_z
 
-        i = [0, 1, 2, 5, 6, 7]
-        j = [11, 12, 13]
+        obj_1 = [[0, 1, 2, 5, 6, 7],
+                 [0, 1, 2, 8, 9, 10],
+                 [0, 1, 2, 11, 12, 13],
+                 [0, 1, 2, 14, 15, 16]]
 
-        two_state[0, 0, :] = data[i]
-        two_goal[0, 0, :] = data[j]
+        obj_2 = [[11, 12, 13],
+                 [14, 15, 16],
+                 [17, 18, 19],
+                 [20, 21, 22]]
+
+        state_index = obj_1[0]
+        goal_index = obj_2[0]
+        two_state[0, 0, :] = data[state_index]
+        two_goal[0, 0, :] = data[goal_index]
 
         done = False
 
         model_for_25_nets.reset_states()
 
+        stage = 0
+
         while not done:
+
             env.render()
-            two_x, two_y, two_z, two_hand = model_for_25_nets.predict_on_batch([two_state, two_goal])
+
+            two_x, two_y, two_z, two_hand, two_end = model_for_25_nets.predict_on_batch([two_state, two_goal])
 
             x = two_x[0, 0, :]
             y = two_y[0, 0, :]
             z = two_z[0, 0, :]
             hand = two_hand[0, 0, :]
+            end = two_end[0, 0, :]
 
             action = np.zeros(4,)
             step_size = 0.01
@@ -281,6 +312,34 @@ def test(model_for_25_nets):
             elif hand.argmax() == 1:
                 action[3] = 1.0
 
+            if end.argmax() == 1:
+                if stage == 0:
+                    print("change !")
+                    state_index = obj_1[1]
+                    goal_index = obj_2[1]
+                    two_state[0, 0, :] = data[state_index]
+                    two_goal[0, 0, :] = data[goal_index]
+                    model_for_25_nets.reset_states()
+                    stage = 1
+                elif stage == 1:
+                    print("change !")
+                    state_index = obj_1[2]
+                    goal_index = obj_2[2]
+                    two_state[0, 0, :] = data[state_index]
+                    two_goal[0, 0, :] = data[goal_index]
+                    model_for_25_nets.reset_states()
+                    stage = 2
+                elif stage == 2:
+                    print("change !")
+                    state_index = obj_1[3]
+                    goal_index = obj_2[3]
+                    two_state[0, 0, :] = data[state_index]
+                    two_goal[0, 0, :] = data[goal_index]
+                    model_for_25_nets.reset_states()
+                    stage = 3
+                elif stage == 3:
+                    break
+
             observation, reward, done, info = env.step(action)
             data = observation["my_new_observation"]
 
@@ -307,11 +366,8 @@ def test(model_for_25_nets):
             data[y] = data_y
             data[z] = data_z
 
-            i = [0, 1, 2, 5, 6, 7]
-            j = [11, 12, 13]
-
-            two_state[0, 0, :] = data[i]
-            two_goal[0, 0, :] = data[j]
+            two_state[0, 0, :] = data[state_index]
+            two_goal[0, 0, :] = data[goal_index]
 
             if done:
                 print(True)

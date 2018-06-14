@@ -137,7 +137,7 @@ def get_data(filename):
           "min:", num_length.min(),
           "length:", num_length.shape[0])
 
-    data_reshape = np.zeros((num_length.shape[0], 4, 25))
+    data_reshape = np.zeros((num_length.shape[0], 400, 48))
 
     for i in range(num_length.shape[0]):
         data_reshape[i, 0:num_length[i], :] = data[num_index[i] - num_length[i] + 1:num_index[i] + 1, :]
@@ -147,12 +147,12 @@ def get_data(filename):
 
 def train_model():
 
-    state = Input(shape=(4, 21))
+    state = Input(shape=(400, 21))
 
     concat_1 = Dense(50, activation='relu')(state)
     concat_2 = Dense(50, activation='relu')(concat_1)
 
-    lstm_1 = LSTM(50, return_sequences=True, return_state=False, stateful=False)(concat_2)
+    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=False)(concat_2)
 
     concat_3 = Dense(50, activation='relu')(lstm_1)
     concat_4 = Dense(50, activation='relu')(concat_3)
@@ -171,7 +171,7 @@ def test_model():
     concat_1 = Dense(50, activation='relu')(state)
     concat_2 = Dense(50, activation='relu')(concat_1)
 
-    lstm_1 = LSTM(50, return_sequences=True, return_state=False, stateful=True)(concat_2)
+    lstm_1 = LSTM(100, input_shape=(50, 50), return_sequences=True, return_state=False, stateful=True)(concat_2)
 
     concat_3 = Dense(50, activation='relu')(lstm_1)
     concat_4 = Dense(50, activation='relu')(concat_3)
@@ -202,9 +202,8 @@ def test_model_sub():
     output_y = Dense(3, activation='softmax', name="y")(concat_4)
     output_z = Dense(3, activation='softmax', name="z")(concat_4)
     output_hand = Dense(2, activation='softmax', name="hand")(concat_4)
-    output_end = Dense(2, activation='softmax', name="output_end")(concat_4)
 
-    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand, output_end], name='behavior_cloning')
+    model = Model(inputs=[state, goal], outputs=[output_x, output_y, output_z, output_hand], name='behavior_cloning')
 
     return model
 
@@ -212,7 +211,7 @@ def test_model_sub():
 def train(model):
 
     # get the data for training
-    data = get_data("data/PP-1-paths-1000-[0, 1, 2, 3]-top4.p")
+    data = get_data("data/PP-1-paths-1000-[0, 1, 2, 3]-top.p")
     i = [0,  1,  2,
          5,  6,  7,  8,  9,  10,
          11, 12, 13, 14, 15, 16,
@@ -220,12 +219,7 @@ def train(model):
     state_feed = data[:, :, i]
     action_feed = data[:, :, 23]
 
-    # for i in range(action_feed.shape[1]):
-    #     print(action_feed[190, i])
-    #
-    # return 0
-    #
-    # action_feed = to_categorical(action_feed, 4)
+    action_feed = to_categorical(action_feed, 4)
 
     model.compile(optimizer=Adam(lr=1e-4),
                   loss='categorical_crossentropy',
@@ -234,7 +228,7 @@ def train(model):
 
     # model.load_weights('FetchPickAndPlace.199-0.0034.hdf5', by_name=True)
 
-    tf_board = TensorBoard(log_dir='./logs-top4',
+    tf_board = TensorBoard(log_dir='./logs-top-ct',
                            histogram_freq=0,
                            write_graph=True,
                            write_images=False,
@@ -247,7 +241,7 @@ def train(model):
                                verbose=0,
                                mode='auto')
 
-    model_checkpoint = ModelCheckpoint('weights-top4/top4.{epoch:02d}-{val_loss:.4f}.hdf5',
+    model_checkpoint = ModelCheckpoint('weights-top-ct/top-ct.{epoch:02d}-{val_loss:.4f}.hdf5',
                                        monitor='val_loss',                    # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
@@ -269,23 +263,18 @@ def test(top_model, sub_model):
 
     top_model.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy', metrics=['accuracy'])
 
-    top_model.load_weights('weights-top4/top4.247-0.0000.hdf5')
+    top_model.load_weights('weights-top-ct/top-ct.727-0.0016.hdf5')
 
     sub_model.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy', metrics=['accuracy'])
 
-    sub_model.load_weights('weights-sub-end-random/sub-end-random.442-0.0675.hdf5')
+    sub_model.load_weights('weights-sub-ct/sub-ct.390-0.0620.hdf5')
 
-    env.reset()
-
-    env.step([0, 0, 0, 0])
-    env.render()
 
     while True:
 
-        two_state_top = np.zeros((2, 1, 21))
-
         two_state_sub = np.zeros((2, 1, 6))
         two_goal_sub = np.zeros((2, 1, 3))
+        two_state_top = np.zeros((2, 1, 21))
 
         observation = env.reset()
 
@@ -303,12 +292,10 @@ def test(top_model, sub_model):
         top_model.reset_states()
         sub_model.reset_states()
 
-        last_index = 0
+        last_choice = -1
 
         while not done:
-
             env.render()
-
             two_choice = top_model.predict_on_batch(two_state_top)
 
             choice = two_choice[0, 0, :]
@@ -317,63 +304,65 @@ def test(top_model, sub_model):
             goal_index = [0, 0, 0]
 
             if choice.argmax() == 0:
-                print("0")
-                sub_model.reset_states()
+                if last_choice != 0:
+                    sub_model.reset_states()
+                    last_choice = 0
+                    print("============== to 0 ==============")
                 state_index = [0, 1, 2, 5, 6, 7]
                 goal_index = [11, 12, 13]
 
             elif choice.argmax() == 1:
-                print("1")
-                sub_model.reset_states()
+                if last_choice != 1:
+                    sub_model.reset_states()
+                    last_choice = 1
+                    print("============== to 1 ==============")
                 state_index = [0, 1, 2, 8, 9, 10]
                 goal_index = [14, 15, 16]
 
             elif choice.argmax() == 2:
-                print("2")
-                sub_model.reset_states()
+                if last_choice != 2:
+                    sub_model.reset_states()
+                    last_choice = 2
+                    print("============== to 2 ==============")
                 state_index = [0, 1, 2, 11, 12, 13]
                 goal_index = [17, 18, 19]
 
             elif choice.argmax() == 3:
-                if last_index == 3:
-                    break
-                else:
-                    last_index = 3
-                print("3")
-                sub_model.reset_states()
+                if last_choice != 3:
+                    sub_model.reset_states()
+                    last_choice = 3
+                    print("============== to 3 ==============")
                 state_index = [0, 1, 2, 14, 15, 16]
                 goal_index = [20, 21, 22]
 
-            while not done:
-                env.render()
-                two_state_sub[0, 0, :] = data[state_index]
-                two_goal_sub[0, 0, :] = data[goal_index]
+            two_state_sub[0, 0, :] = data[state_index]
+            two_goal_sub[0, 0, :] = data[goal_index]
 
-                # =============== action ===============
+            # =============== action ===============
 
-                two_x, two_y, two_z, two_hand, two_end = sub_model.predict_on_batch([two_state_sub, two_goal_sub])
+            two_x, two_y, two_z, two_hand = sub_model.predict_on_batch([two_state_sub, two_goal_sub])
 
-                x = two_x[0, 0, :]
-                y = two_y[0, 0, :]
-                z = two_z[0, 0, :]
-                hand = two_hand[0, 0, :]
-                end = two_end[0, 0, :]
+            x = two_x[0, 0, :]
+            y = two_y[0, 0, :]
+            z = two_z[0, 0, :]
+            hand = two_hand[0, 0, :]
 
-                if end.argmax() == 1:
-                    ii = [0, 1, 2,
-                          5, 6, 7, 8, 9, 10,
-                          11, 12, 13, 14, 15, 16,
-                          17, 18, 19, 20, 21, 22]
+            action = get_control_signal(x, y, z, hand)
 
-                    two_state_top[0, 0, :] = data[ii]
+            observation, reward, done, info = env.step(action)
+            data = observation["my_new_observation"]
 
-                    break
+            data = data_normalize(data)
 
-                action = get_control_signal(x, y, z, hand)
+            ii = [0, 1, 2,
+                  5, 6, 7, 8, 9, 10,
+                  11, 12, 13, 14, 15, 16,
+                  17, 18, 19, 20, 21, 22]
 
-                observation, reward, done, info = env.step(action)
-                data = observation["my_new_observation"]
-                data = data_normalize(data)
+            two_state_top[0, 0, :] = data[ii]
+
+            if done:
+                print(True)
 
 
 def check_usage_for_lstm(model_for_25_nets):

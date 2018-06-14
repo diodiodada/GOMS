@@ -74,6 +74,10 @@ goal: 3 position
     2,对状态序列进行降采样
 
 
+gym 里面的一个bug是：
+    when using render(), the firs time the claw is very low
+    but if not using render(), the problem is gone
 
 
+之前犯了一个非常愚蠢地错误是在我的第一个版本的top-sub policy 中，我加载权重的时候设置了 by_name = True, 导致权重加载不正确
 
