@@ -144,7 +144,7 @@ def train_trajectory_encoder(model):
                            embeddings_layer_names=None,
                            embeddings_metadata=None)
 
-    model_checkpoint = ModelCheckpoint('weights-0/tra-encoder.{epoch:d}-{val_loss:.6f}.hdf5',
+    model_checkpoint = ModelCheckpoint('weights-embedding/tra-encoder.{epoch:d}-{val_loss:.6f}.hdf5',
                                        monitor='val_loss',  # here 'val_loss' and 'loss' are the same
                                        verbose=1,
                                        save_best_only=True,
